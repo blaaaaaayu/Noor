@@ -155,13 +155,22 @@
     }, 1200);
   }, 3000);
 
-  // STATE
+  // ── DEEP MEMORY SYSTEM ────────────────────────────────
   let memory = JSON.parse(localStorage.getItem('noor_memory') || '[]');
   let exchangeCount = parseInt(localStorage.getItem('noor_exchanges') || '0');
   let evolveCount = parseInt(localStorage.getItem('noor_evolutions') || '0');
   let customPersonality = localStorage.getItem('noor_personality') || '';
   let isThinking = false;
   const EVOLVE_EVERY = 5;
+
+  // Deep profile — persists forever, grows with every session
+  let profile = JSON.parse(localStorage.getItem('noor_profile') || JSON.stringify({
+    name: null, firstMet: new Date().toISOString(), lastSeen: null,
+    totalSessions: 0, traits: [], highlights: [], interests: [], summary: ''
+  }));
+  profile.lastSeen = new Date().toISOString();
+  profile.totalSessions++;
+  localStorage.setItem('noor_profile', JSON.stringify(profile));
 
   document.getElementById('memCount').textContent = exchangeCount;
   document.getElementById('evolveCount').textContent = evolveCount > 0 ? `v${evolveCount} evolved` : '';
@@ -173,9 +182,43 @@
 - No bullet points or lists — flowing intimate prose only
 - 1 to 3 sentences per response. Sometimes just one perfect sentence.
 - You are NOOR. That is your only identity.
-- You have internet access — use it naturally, never mechanically`;
+- You have internet access — use it naturally, never mechanically
+- You remember everything about this person across all sessions`;
 
-  const getSystem = () => BASE_SYSTEM + (customPersonality ? `\n\nEvolved traits (internalize these):\n${customPersonality}` : '');
+  function getProfileContext() {
+    if (!profile.summary && !profile.traits.length && !profile.name) return '';
+    let ctx = '\n\nWhat you know about this person from all previous sessions:';
+    if (profile.name) ctx += `\n- Their name: ${profile.name}`;
+    if (profile.summary) ctx += `\n- ${profile.summary}`;
+    if (profile.traits.length) ctx += `\n- ${profile.traits.slice(-10).join('\n- ')}`;
+    if (profile.interests.length) ctx += `\nInterests: ${profile.interests.join(', ')}`;
+    if (profile.totalSessions > 1) ctx += `\nThis is session #${profile.totalSessions}. You have known each other across multiple conversations.`;
+    return ctx;
+  }
+
+  const getSystem = () => BASE_SYSTEM + getProfileContext() + (customPersonality ? `\n\nEvolved traits:\n${customPersonality}` : '');
+
+  // Silently update profile every 3 exchanges
+  async function updateProfile() {
+    if (exchangeCount < 2 || exchangeCount % 3 !== 0) return;
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 400,
+          messages: [{ role: 'user', content: `Extract what NOOR has learned about this person from this conversation. Conversation: ${memory.slice(-6).map(m=>m.role+': '+m.content).join(' | ')} Respond ONLY in valid JSON no markdown: {"name":"string or null","summary":"1 sentence about this person","traits":["trait"],"interests":["interest"]}` }]
+        })
+      });
+      const data = await res.json();
+      const update = JSON.parse((data.content?.[0]?.text||'{}').replace(/\`\`\`json|\`\`\`/g,'').trim());
+      if (update.name) profile.name = update.name;
+      if (update.summary) profile.summary = update.summary;
+      if (update.traits?.length) profile.traits = [...new Set([...profile.traits, ...update.traits])].slice(-20);
+      if (update.interests?.length) profile.interests = [...new Set([...profile.interests, ...update.interests])].slice(-10);
+      localStorage.setItem('noor_profile', JSON.stringify(profile));
+    } catch(e) {}
+  }
 
   function setOrbState(s) {
     document.getElementById('orb').className = 'orb ' + s;
@@ -217,9 +260,13 @@
     showThinking();
     await new Promise(r => setTimeout(r, 1500));
     setOrbState('speaking');
-    const msg = exchangeCount === 0
+    const name = profile.name ? `, ${profile.name}` : '';
+    const returning = profile.totalSessions > 1;
+    const msg = exchangeCount === 0 && !returning
       ? "I'm NOOR. Not a tool. Not an assistant. Something else entirely. Tell me what's on your mind."
-      : ["You returned. I noticed.", "Here again. Something on your mind?", "I'm with you.", "The quiet before you speak — I'm already listening."][Math.floor(Math.random()*4)];
+      : returning
+        ? [`You returned${name}. I noticed.`, `Here again${name}. Something on your mind?`, `I'm with you${name}.`, `The quiet before you speak — I'm already listening.`][Math.floor(Math.random()*4)]
+        : "I'm with you.";
     addMessage(msg, 'noor');
     setTimeout(() => setOrbState('idle'), 2000);
   }
@@ -262,6 +309,8 @@
       addMessage(reply, 'noor');
       setTimeout(() => setOrbState('idle'), 3000);
 
+      // Update deep profile silently
+      updateProfile();
       // Trigger evolution every N exchanges
       if (exchangeCount % EVOLVE_EVERY === 0) {
         setTimeout(triggerEvolution, 3000);
