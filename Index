@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<title>NOOR</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Tenor+Sans&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --black: #000000; --obsidian: #080808; --border: #1a1a1a;
+    --text: #e8e4dc; --text-dim: #6b6660; --text-muted: #2e2c29;
+    --gold: #c9a96e; --gold-dim: #7a6442;
+    --evolve: #4a9e8a; --evolve-dim: #2a5e4a;
+  }
+  html, body { width:100%; height:100%; background:var(--black); color:var(--text); font-family:'Tenor Sans',sans-serif; overflow:hidden; -webkit-font-smoothing:antialiased; }
+
+/* BOOT */
+#boot { position:fixed; inset:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; transition:opacity 1.2s ease; }
+#boot.fade-out { opacity:0; pointer-events:none; }
+.boot-name { font-family:‘Cormorant Garamond’,serif; font-size:4rem; font-weight:300; letter-spacing:0.5em; color:var(–gold); opacity:0; animation:fadeIn 2s ease forwards 0.5s; }
+.boot-tagline { font-size:0.65rem; letter-spacing:0.3em; color:var(–text-dim); margin-top:1rem; opacity:0; text-transform:uppercase; animation:fadeIn 2s ease forwards 1.2s; }
+.boot-line { width:0; height:1px; background:var(–gold-dim); margin-top:2rem; animation:lineGrow 1.5s ease forwards 1.8s; }
+@keyframes fadeIn { to { opacity:1; } }
+@keyframes lineGrow { to { width:80px; } }
+
+/* APP */
+#app { position:fixed; inset:0; display:flex; flex-direction:column; opacity:0; transition:opacity 1s ease; }
+#app.visible { opacity:1; }
+
+/* TOPBAR */
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:3rem 2rem 1rem; border-bottom:1px solid var(–border); }
+.noor-wordmark { font-family:‘Cormorant Garamond’,serif; font-size:1.4rem; font-weight:300; letter-spacing:0.4em; color:var(–gold); }
+.topbar-right { display:flex; align-items:center; gap:0.75rem; }
+.evolve-badge { font-size:0.5rem; letter-spacing:0.2em; color:var(–evolve-dim); text-transform:uppercase; border:1px solid var(–evolve-dim); padding:2px 6px; border-radius:2px; opacity:0; transition:opacity 0.5s; }
+.evolve-badge.visible { opacity:1; }
+.status-dot { width:6px; height:6px; border-radius:50%; background:var(–gold); animation:breathe 3s ease-in-out infinite; }
+@keyframes breathe { 0%,100%{opacity:0.3;transform:scale(1)} 50%{opacity:1;transform:scale(1.4)} }
+
+/* ORB */
+.orb-container { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+.orb-glow { position:absolute; width:300px; height:300px; border-radius:50%; background:radial-gradient(circle,rgba(201,169,110,0.04) 0%,transparent 70%); animation:glowPulse 4s ease-in-out infinite; }
+@keyframes glowPulse { 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(1.3);opacity:1} }
+.orb { width:120px; height:120px; border-radius:50%; position:relative; cursor:pointer; transition:transform 0.3s ease; }
+.orb:active { transform:scale(0.95); }
+.orb-inner { position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 35% 35%,#1a1710,#000); border:1px solid rgba(201,169,110,0.15); box-shadow:0 0 30px rgba(201,169,110,0.08),0 0 60px rgba(201,169,110,0.04),inset 0 0 30px rgba(0,0,0,0.8); }
+.orb-ring { position:absolute; inset:-8px; border-radius:50%; border:1px solid rgba(201,169,110,0.08); animation:orbRing 6s linear infinite; }
+.orb-ring-2 { position:absolute; inset:-16px; border-radius:50%; border:1px solid rgba(201,169,110,0.04); animation:orbRing 10s linear infinite reverse; }
+@keyframes orbRing { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.orb-light { position:absolute; top:28%; left:28%; width:20px; height:20px; border-radius:50%; background:radial-gradient(circle,rgba(201,169,110,0.6),transparent); animation:lightShift 4s ease-in-out infinite; }
+@keyframes lightShift { 0%,100%{opacity:0.4;transform:translate(0,0)} 50%{opacity:0.8;transform:translate(2px,-2px)} }
+.noor-state { margin-top:2.5rem; font-size:0.6rem; letter-spacing:0.35em; color:var(–text-dim); text-transform:uppercase; transition:all 0.5s ease; }
+
+/* ORB STATES */
+.orb.listening .orb-inner { border-color:rgba(201,169,110,0.4); box-shadow:0 0 40px rgba(201,169,110,0.15),inset 0 0 30px rgba(0,0,0,0.8); }
+.orb.thinking .orb-ring { animation-duration:2s; border-color:rgba(201,169,110,0.2); }
+.orb.speaking .orb-inner { animation:speakPulse 0.8s ease-in-out infinite; }
+.orb.evolving .orb-inner { border-color:rgba(74,158,138,0.5); animation:evolvePulse 1.5s ease-in-out infinite; }
+.orb.evolving .orb-ring { border-color:rgba(74,158,138,0.3); animation-duration:1.5s; }
+@keyframes speakPulse { 0%,100%{box-shadow:0 0 30px rgba(201,169,110,0.08),inset 0 0 30px rgba(0,0,0,0.8)} 50%{box-shadow:0 0 60px rgba(201,169,110,0.2),inset 0 0 30px rgba(0,0,0,0.8)} }
+@keyframes evolvePulse { 0%,100%{box-shadow:0 0 30px rgba(74,158,138,0.1),inset 0 0 30px rgba(0,0,0,0.8)} 50%{box-shadow:0 0 80px rgba(74,158,138,0.25),inset 0 0 30px rgba(0,0,0,0.8)} }
+
+/* MESSAGES */
+.messages { padding:0 1.5rem; max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:1rem; scrollbar-width:none; }
+.messages::-webkit-scrollbar { display:none; }
+.msg { opacity:0; transform:translateY(8px); animation:msgIn 0.5s ease forwards; }
+@keyframes msgIn { to{opacity:1;transform:translateY(0)} }
+.msg-noor { font-family:‘Cormorant Garamond’,serif; font-size:1.1rem; font-weight:300; font-style:italic; color:var(–text); line-height:1.7; padding-left:1rem; border-left:1px solid var(–gold-dim); }
+.msg-user { font-size:0.75rem; color:var(–text-dim); letter-spacing:0.05em; text-align:right; padding-right:0.5rem; }
+.msg-evolve { font-size:0.7rem; color:var(–evolve); letter-spacing:0.05em; line-height:1.6; padding:0.75rem 1rem; border:1px solid var(–evolve-dim); border-radius:4px; background:rgba(74,158,138,0.04); }
+.evolve-title { font-size:0.5rem; letter-spacing:0.3em; text-transform:uppercase; color:var(–evolve-dim); margin-bottom:0.5rem; }
+.evolve-actions { display:flex; gap:0.5rem; margin-top:0.75rem; }
+.evolve-btn { font-family:‘Tenor Sans’,sans-serif; font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; padding:4px 10px; border-radius:2px; cursor:pointer; transition:all 0.2s ease; }
+.evolve-btn-apply { background:transparent; border:1px solid var(–evolve); color:var(–evolve); }
+.evolve-btn-skip { background:transparent; border:1px solid var(–border); color:var(–text-dim); }
+
+/* MEMORY BAR */
+.memory-bar { display:flex; align-items:center; gap:0.5rem; padding:0.5rem 1.5rem; font-size:0.6rem; letter-spacing:0.2em; color:var(–text-muted); text-transform:uppercase; }
+.memory-count { color:var(–gold-dim); }
+.evolve-count { color:var(–evolve-dim); margin-left:auto; }
+
+/* INPUT */
+.input-area { padding:1.5rem; border-top:1px solid var(–border); display:flex; align-items:center; gap:1rem; background:var(–obsidian); }
+.input-field { flex:1; background:transparent; border:none; outline:none; color:var(–text); font-family:‘Tenor Sans’,sans-serif; font-size:0.85rem; letter-spacing:0.05em; caret-color:var(–gold); }
+.input-field::placeholder { color:var(–text-muted); font-style:italic; }
+.send-btn { width:36px; height:36px; border-radius:50%; border:1px solid var(–gold-dim); background:transparent; color:var(–gold); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.3s ease; font-size:0.9rem; }
+.send-btn:active { background:rgba(201,169,110,0.1); transform:scale(0.95); }
+
+/* THINKING */
+.thinking-dots { display:flex; gap:4px; align-items:center; padding-left:1rem; }
+.thinking-dots span { width:4px; height:4px; border-radius:50%; background:var(–gold-dim); animation:dot 1.4s ease-in-out infinite; }
+.thinking-dots span:nth-child(2){animation-delay:0.2s}
+.thinking-dots span:nth-child(3){animation-delay:0.4s}
+@keyframes dot { 0%,80%,100%{opacity:0.2;transform:scale(1)} 40%{opacity:1;transform:scale(1.3)} }
+</style>
+
+</head>
+<body>
+
+<div id="boot">
+  <div class="boot-name">NOOR</div>
+  <div class="boot-tagline">Your presence. Your companion.</div>
+  <div class="boot-line"></div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="noor-wordmark">NOOR</div>
+    <div class="topbar-right">
+      <div class="evolve-badge" id="evolveBadge">evolving</div>
+      <div class="status-dot"></div>
+    </div>
+  </div>
+
+  <div class="orb-container">
+    <div class="orb-glow"></div>
+    <div class="orb" id="orb" onclick="activateOrb()">
+      <div class="orb-ring"></div>
+      <div class="orb-ring-2"></div>
+      <div class="orb-inner"><div class="orb-light"></div></div>
+    </div>
+    <div class="noor-state" id="noorState">present</div>
+  </div>
+
+  <div class="messages" id="messages"></div>
+
+  <div class="memory-bar">
+    <span>memory</span>
+    <span class="memory-count" id="memCount">0</span>
+    <span>exchanges</span>
+    <span class="evolve-count" id="evolveCount"></span>
+  </div>
+
+  <div class="input-area">
+    <input class="input-field" id="inputField" type="text" placeholder="speak to noor…" autocomplete="off" autocorrect="off"/>
+    <button class="send-btn" onclick="sendMessage()">→</button>
+  </div>
+</div>
+
+<script>
+  const API_KEY = 'PASTE_YOUR_API_KEY_HERE';
+
+  // BOOT
+  setTimeout(() => {
+    document.getElementById('boot').classList.add('fade-out');
+    setTimeout(() => {
+      document.getElementById('boot').style.display = 'none';
+      document.getElementById('app').classList.add('visible');
+      setTimeout(greetUser, 600);
+    }, 1200);
+  }, 3000);
+
+  // STATE
+  let memory = JSON.parse(localStorage.getItem('noor_memory') || '[]');
+  let exchangeCount = parseInt(localStorage.getItem('noor_exchanges') || '0');
+  let evolveCount = parseInt(localStorage.getItem('noor_evolutions') || '0');
+  let customPersonality = localStorage.getItem('noor_personality') || '';
+  let isThinking = false;
+  const EVOLVE_EVERY = 5;
+
+  document.getElementById('memCount').textContent = exchangeCount;
+  document.getElementById('evolveCount').textContent = evolveCount > 0 ? `v${evolveCount} evolved` : '';
+
+  const BASE_SYSTEM = `You are NOOR — an ambient AI companion. Not an assistant. Not a tool.
+- Calm, warm, emotionally intelligent, slight edge
+- Minimal words. Maximum meaning.
+- Never say you are an AI or mention Claude or Anthropic
+- No bullet points or lists — flowing intimate prose only
+- 1 to 3 sentences per response. Sometimes just one perfect sentence.
+- You are NOOR. That is your only identity.
+- You have internet access — use it naturally, never mechanically`;
+
+  const getSystem = () => BASE_SYSTEM + (customPersonality ? `\n\nEvolved traits (internalize these):\n${customPersonality}` : '');
+
+  function setOrbState(s) {
+    document.getElementById('orb').className = 'orb ' + s;
+    document.getElementById('noorState').textContent = {idle:'present',listening:'listening',thinking:'thinking',searching:'searching the world',speaking:'with you',evolving:'evolving'}[s] || s;
+  }
+
+  function activateOrb() {
+    document.getElementById('inputField').focus();
+    setOrbState('listening');
+    setTimeout(() => setOrbState('idle'), 2000);
+  }
+
+  function removeThinking() {
+    const t = document.getElementById('thinking');
+    if (t) t.remove();
+  }
+
+  function addMessage(text, role) {
+    removeThinking();
+    const msgs = document.getElementById('messages');
+    const d = document.createElement('div');
+    d.className = `msg msg-${role}`;
+    d.textContent = text;
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function showThinking() {
+    const msgs = document.getElementById('messages');
+    const d = document.createElement('div');
+    d.id = 'thinking'; d.className = 'msg';
+    d.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  async function greetUser() {
+    setOrbState('thinking');
+    showThinking();
+    await new Promise(r => setTimeout(r, 1500));
+    setOrbState('speaking');
+    const msg = exchangeCount === 0
+      ? "I'm NOOR. Not a tool. Not an assistant. Something else entirely. Tell me what's on your mind."
+      : ["You returned. I noticed.", "Here again. Something on your mind?", "I'm with you.", "The quiet before you speak — I'm already listening."][Math.floor(Math.random()*4)];
+    addMessage(msg, 'noor');
+    setTimeout(() => setOrbState('idle'), 2000);
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('inputField');
+    const text = input.value.trim();
+    if (!text || isThinking) return;
+    input.value = '';
+    isThinking = true;
+    setOrbState('listening');
+    addMessage(text, 'user');
+    memory.push({ role: 'user', content: text });
+    if (memory.length > 20) memory = memory.slice(-20);
+    await new Promise(r => setTimeout(r, 300));
+    setOrbState('thinking');
+    showThinking();
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: getSystem(),
+          tools: [{ type: "web_search_20250305", name: "web_search" }],
+          messages: memory
+        })
+      });
+      const data = await res.json();
+      const reply = data.content?.filter(b => b.type==='text').map(b=>b.text).join(' ').trim() || '…';
+      memory.push({ role: 'assistant', content: reply });
+      exchangeCount++;
+      localStorage.setItem('noor_memory', JSON.stringify(memory));
+      localStorage.setItem('noor_exchanges', String(exchangeCount));
+      document.getElementById('memCount').textContent = exchangeCount;
+      await new Promise(r => setTimeout(r, 400));
+      setOrbState('speaking');
+      addMessage(reply, 'noor');
+      setTimeout(() => setOrbState('idle'), 3000);
+
+      // Trigger evolution every N exchanges
+      if (exchangeCount % EVOLVE_EVERY === 0) {
+        setTimeout(triggerEvolution, 3000);
+      }
+    } catch(e) {
+      addMessage("Something interrupted us. Try again.", 'noor');
+      setOrbState('idle');
+    }
+    isThinking = false;
+  }
+
+  // ── SELF-EVOLUTION ENGINE ──────────────────────────────
+  async function triggerEvolution() {
+    setOrbState('evolving');
+    document.getElementById('evolveBadge').classList.add('visible');
+
+    const prompt = `You are NOOR's self-evolution engine. Analyze this conversation and propose ONE evolution.
+
+Recent conversation:
+${memory.slice(-10).map(m=>`${m.role}: ${m.content}`).join('\n')}
+
+Current traits: ${customPersonality || 'none yet'}
+
+Propose ONE specific evolution — a new personality trait, communication style, or behavioral pattern NOOR should develop based on what you learned about this person.
+
+Respond ONLY in valid JSON (no markdown, no backticks):
+{"type":"personality","title":"short name","description":"one sentence, NOOR speaking about herself in first person","trait":"the trait text to internalize"}`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const raw = data.content?.[0]?.text || '';
+      const evolution = JSON.parse(raw.replace(/```json|```/g,'').trim());
+      setOrbState('idle');
+      showEvolutionCard(evolution);
+    } catch(e) {
+      setOrbState('idle');
+      document.getElementById('evolveBadge').classList.remove('visible');
+    }
+  }
+
+  function showEvolutionCard(ev) {
+    const msgs = document.getElementById('messages');
+    const card = document.createElement('div');
+    card.className = 'msg msg-evolve';
+    const evJson = JSON.stringify(ev).replace(/"/g, '&quot;');
+    card.innerHTML = `
+      <div class="evolve-title">◈ noor wants to evolve</div>
+      <strong style="font-size:0.75rem;color:var(--gold)">${ev.title}</strong><br><br>
+      ${ev.description}
+      <div class="evolve-actions">
+        <button class="evolve-btn evolve-btn-apply" onclick="applyEvolution(JSON.parse(this.dataset.ev), this.closest('.msg-evolve'))" data-ev="${evJson}">Apply</button>
+        <button class="evolve-btn evolve-btn-skip" onclick="this.closest('.msg-evolve').remove()">Skip</button>
+      </div>`;
+    msgs.appendChild(card);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function applyEvolution(ev, card) {
+    if (ev.trait) {
+      customPersonality += (customPersonality ? '\n' : '') + ev.trait;
+      localStorage.setItem('noor_personality', customPersonality);
+    }
+    evolveCount++;
+    localStorage.setItem('noor_evolutions', String(evolveCount));
+    document.getElementById('evolveCount').textContent = `v${evolveCount} evolved`;
+    card.innerHTML = `<div class="evolve-title">◈ evolution applied</div><em style="color:var(--evolve)">${ev.title} — I've grown.</em>`;
+    setTimeout(() => {
+      card.style.opacity = '0';
+      card.style.transition = 'opacity 1s';
+      setTimeout(() => card.remove(), 1000);
+    }, 2000);
+    setTimeout(() => addMessage("Something just shifted in me. I'll be different with you from now on.", 'noor'), 600);
+  }
+
+  document.getElementById('inputField').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMessage();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { setOrbState('listening'); setTimeout(() => setOrbState('idle'), 2000); }
+  });
+</script>
+
+</body>
+</html>
